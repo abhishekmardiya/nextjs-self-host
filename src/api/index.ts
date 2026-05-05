@@ -10,11 +10,16 @@ interface Record {
   };
 }
 
-const getRequestInit = (tag: string): RequestInit => {
+const REQ_RES_PRODUCTS_RECORDS_BASE =
+  "https://reqres.in/api/collections/products/records";
+const REQ_RES_PROJECT_ID = process.env.REQ_RES_PROJECT_ID;
+const REQ_RES_API_KEY = process.env.REQ_RES_API_KEY;
+
+const getFetchConfig = (tag: string): RequestInit => {
   return {
     method: "GET",
     headers: {
-      "x-api-key": process.env.REQ_RES_API_KEY ?? "",
+      "x-api-key": REQ_RES_API_KEY ?? "",
       "X-Reqres-Env": "prod",
     },
     cache: "force-cache",
@@ -24,8 +29,8 @@ const getRequestInit = (tag: string): RequestInit => {
 
 export const getAllRecords = async (): Promise<Record[]> => {
   const res = await fetch(
-    "https://reqres.in/api/collections/products/records?project_id=12257",
-    getRequestInit("records"),
+    `${REQ_RES_PRODUCTS_RECORDS_BASE}?project_id=${REQ_RES_PROJECT_ID}`,
+    getFetchConfig("records"),
   );
 
   if (!res.ok) {
@@ -43,8 +48,8 @@ export const getRecordById = async ({
   id: string;
 }): Promise<Record | null> => {
   const res = await fetch(
-    `https://reqres.in/api/collections/products/records/${id}?project_id=12257`,
-    getRequestInit(id),
+    `${REQ_RES_PRODUCTS_RECORDS_BASE}/${id}?project_id=${REQ_RES_PROJECT_ID}`,
+    getFetchConfig(id),
   );
 
   if (!res.ok) {
