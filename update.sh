@@ -1,30 +1,33 @@
 #!/bin/bash
+set -euo pipefail
 
-# Script Vars
+# Match deploy.sh — edit if your server layout differs
 REPO_URL="git@github.com:abhishekmardiya/nextjs-self-host.git"
-APP_DIR=~/app
+APP_DIR="${HOME}/nextjs-self-host"
+COMPOSE_FILE="compose.yml"
 
-# Pull the latest changes from the Git repository
-if [ -d "$APP_DIR" ]; then
-  echo "Pulling latest changes from the repository..."
-  cd $APP_DIR
-  git pull origin main
+if [[ -d "${APP_DIR}" ]]; then
+  echo "Pulling latest changes..."
+  git -C "${APP_DIR}" pull --ff-only
 else
-  echo "Cloning repository from $REPO_URL..."
-  git clone $REPO_URL $APP_DIR
-  cd $APP_DIR
+  echo "Cloning repository from ${REPO_URL}..."
+  git clone "${REPO_URL}" "${APP_DIR}"
 fi
 
-# Build and restart the Docker containers from the app directory (~/app)
-echo "Rebuilding and restarting Docker containers..."
-sudo docker-compose down
-sudo docker-compose up --build -d
+cd "${APP_DIR}"
 
-# Check if Docker Compose started correctly
-if ! sudo docker-compose ps | grep "Up"; then
-  echo "Docker containers failed to start. Check logs with 'docker-compose logs'."
+if [[ ! -f ".env" ]]; then
+  echo "Missing ${APP_DIR}/.env (Compose env_file). Create it from env.sample before updating."
   exit 1
 fi
 
-# Output final message
-echo "Update complete. Your Next.js app has been deployed with the latest changes."
+echo "Rebuilding and restarting containers..."
+sudo docker compose -f "${COMPOSE_FILE}" down
+sudo docker compose -f "${COMPOSE_FILE}" up --build -d
+
+if ! sudo docker compose -f "${COMPOSE_FILE}" ps | grep -q 'Up'; then
+  echo "Containers did not start. Check: sudo docker compose -f ${COMPOSE_FILE} logs"
+  exit 1
+fi
+
+echo "Update complete. Next.js app is running with the latest changes."
