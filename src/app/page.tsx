@@ -2,6 +2,8 @@ import { getAllRecords } from "@/api";
 import Link from "next/link";
 import PurgeCacheButton from "./components/PurgeCacheButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const records = await getAllRecords();
 
