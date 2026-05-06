@@ -1,6 +1,6 @@
 # Self-host Next.js on Ubuntu
 
-Guide for deploying this Next.js app on a Linux Ubuntu server with Nginx, PM2, and HTTPS.
+Guide for deploying this Next.js app on a Linux Ubuntu server with Nginx and HTTPS, using **PM2** or **Docker** on the server.
 
 This project loads product records from **[ReqRes](https://reqres.in/)** collections (REST API). Create a project and API credentials at **[ReqRes App](https://app.reqres.in/)**, then set the variables in `.env` (see [`env.sample`](./env.sample)).
 
@@ -308,3 +308,67 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Self-host with Docker (Ubuntu server)
+
+Run the production **standalone** bundle in Docker **on your VPS** (`node server.js`, not `next start`). Details are in [`Dockerfile`](./Dockerfile).
+
+Use this path when you want containers instead of Node + PM2. Prerequisites (domain, Ubuntu server, DNS, SSH) match [Prerequisites](#prerequisites). Commands below are meant to run **on the server** over SSH.
+
+You can still follow [Setup basic server](#setup-basic-server) steps **1** (updates, packages) and **2** (firewall). **Skip** installing Node.js / npm there and skip the PM2-based **[Build a project](#build-a-project)** section — Docker builds and runs the app for you.
+
+### 1. Install Docker Engine and Compose plugin
+
+Official reference: **[Install Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/)**.
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${VERSION_CODENAME:-$VERSION_ID}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Verify:
+
+```bash
+docker version
+docker compose version
+```
+
+### 2. Build and start
+
+From the directory that contains `compose.yml`:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+### 3. Operations
+
+```bash
+docker compose ps
+docker compose logs -f app
+docker compose restart app
+docker compose stop
+docker compose down
+docker compose up -d --build   # rebuild after dependency or Dockerfile changes
+```
+
+Stop and remove:
+
+```bash
+docker stop next-app
+docker rm next-app
+```
