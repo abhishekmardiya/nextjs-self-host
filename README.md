@@ -346,7 +346,11 @@ docker version
 docker compose version
 ```
 
-### 2. Build and start
+### 2. Manual Docker Compose (optional)
+
+Use this path when you **only** want to build and run the stack with Compose—**no** Nginx, **no** TLS automation, **no** `deploy.sh`. You should already have completed [Install Docker Engine and Compose plugin](#1-install-docker-engine-and-compose-plugin), cloned the repo on the server, and created `.env` (see [`env.sample`](./env.sample)).
+
+#### Build and start
 
 From the directory that contains `compose.yml`:
 
@@ -355,7 +359,7 @@ docker compose build
 docker compose up -d
 ```
 
-### 3. Operations
+#### Operations
 
 ```bash
 docker compose ps
@@ -367,9 +371,27 @@ docker compose build
 docker compose up -d
 ```
 
-Stop and remove:
+Stop and remove the container by name (`container_name` in `compose.yml`):
 
 ```bash
 docker stop next-app
 docker rm next-app
+```
+
+### 3. Automated Ubuntu deploy (`deploy.sh`)
+
+[`deploy.sh`](./deploy.sh) is a **one-shot bootstrap** on a fresh Ubuntu VPS: system updates (optional swap), Docker Engine + Compose plugin, clones or pulls your app into `APP_DIR`, ensures ReqRes vars in `.env` (Compose `env_file`), installs **Nginx** as a reverse proxy to port `3000`, obtains **Let’s Encrypt** TLS for `DOMAIN_NAME`, runs `docker compose`, and installs a cron entry for renewal.
+
+Before running:
+
+1. Create an **`A`** DNS record for `DOMAIN_NAME` pointing at the server’s public IPv4 (required for standalone Certbot).
+2. Open [`deploy.sh`](./deploy.sh) and set **`DOMAIN_NAME`** (hostname only, no `https://`), **`EMAIL`** (for Let’s Encrypt), **`REPO_URL`**, and **`APP_DIR`** as needed.
+
+Place a valid **`${APP_DIR}/.env`** with `REQ_RES_API_KEY` and `REQ_RES_PROJECT_ID`, **or**, on the **first** run only when that file does not yet exist, **`export`** both variables in the shell so the script can write `.env` once.
+
+Copy the script to the server **or** use the copy inside a repo checkout, mark it executable, and run:
+
+```bash
+chmod +x deploy.sh
+./deploy.sh
 ```
