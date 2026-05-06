@@ -380,14 +380,16 @@ docker rm next-app
 
 ### 3. Automated Ubuntu deploy (`deploy.sh`)
 
-[`deploy.sh`](./deploy.sh) is a **one-shot bootstrap** on a fresh Ubuntu VPS: system updates (optional swap), Docker Engine + Compose plugin, clones or pulls your app into `APP_DIR`, ensures ReqRes vars in `.env` (Compose `env_file`), installs **Nginx** as a reverse proxy to port `3000`, obtains **Let’s Encrypt** TLS for `DOMAIN_NAME`, runs `docker compose`, and installs a cron entry for renewal.
+[`deploy.sh`](./deploy.sh) is a **one-shot bootstrap** on a fresh Ubuntu VPS: optional **`${HOME}/nextjs-self-host.env`** (see below), `git` + clone/pull using **`REPO_URL`**, ensures **`${INSTALL_ROOT}/.env`** exists (copy from that bootstrap file if needed), loads **`DOMAIN_NAME`**, **`REPO_URL`**, **`LETS_ENCRYPT_EMAIL`**, ReqRes keys, then system upgrade (optional swap), Docker, **Nginx**, **Let’s Encrypt** for **`DOMAIN_NAME`**, **`docker compose`**, and a renewal cron entry.
+
+Configuration comes from **[`env.sample`](./env.sample)** variables, especially **`DOMAIN_NAME`**, **`REPO_URL`**, optional **`APP_DIR`** (must match the real install path), **`LETS_ENCRYPT_EMAIL`**, and ReqRes keys.
+
+**First deploy / `git clone`:** `deploy.sh` needs **`REPO_URL`** before **`${APP_DIR}/.env`** exists. Either **`export REPO_URL=...`** (and optional **`export APP_DIR=...`**) before running, or create **`~/nextjs-self-host.env`** (or set **`DEPLOY_DOTENV`** to another path) with the same keys as [`env.sample`](./env.sample). If the app’s **`.env`** is still missing after clone, the script copies that bootstrap file into **`${INSTALL_ROOT}/.env`**.
 
 Before running:
 
-1. Create an **`A`** DNS record for `DOMAIN_NAME` pointing at the server’s public IPv4 (required for standalone Certbot).
-2. Open [`deploy.sh`](./deploy.sh) and set **`DOMAIN_NAME`** (hostname only, no `https://`), **`EMAIL`** (for Let’s Encrypt), **`REPO_URL`**, and **`APP_DIR`** as needed.
-
-Place a valid **`${APP_DIR}/.env`** with `REQ_RES_API_KEY` and `REQ_RES_PROJECT_ID`, **or**, on the **first** run only when that file does not yet exist, **`export`** both variables in the shell so the script can write `.env` once.
+1. Create an **`A`** DNS record for **`DOMAIN_NAME`** pointing at the server’s public IPv4 (standalone Certbot).
+2. Provide **`REPO_URL`** via bootstrap file or `export`, and fill **`.env`** per [`env.sample`](./env.sample) (**`DOMAIN_NAME`**, **`LETS_ENCRYPT_EMAIL`**, ReqRes, etc.).
 
 Copy the script to the server **or** use the copy inside a repo checkout, mark it executable, and run:
 

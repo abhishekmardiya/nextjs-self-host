@@ -1,23 +1,72 @@
 #!/bin/bash
 set -euo pipefail
 
-# TLS / domain (no https:// prefix)
-DOMAIN_NAME="test.asyncawaits.com" # Edit these before running
-EMAIL="mardiyaabhishek@gmail.com" # Edit these before running
+# Optional file before first clone: REPO_URL, APP_DIR (defaults below if unset). Same keys as ${APP_DIR}/.env.
+# Override path: export DEPLOY_DOTENV=/path/to/file
+BOOTSTRAP_ENV="${DEPLOY_DOTENV:-${HOME}/nextjs-self-host.env}"
 
-# Where to clone or update the app on the server
-REPO_URL="git@github.com:abhishekmardiya/nextjs-self-host.git"  # Edit these before running
-APP_DIR="${HOME}/nextjs-self-host"
+if [[ -f "${BOOTSTRAP_ENV}" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${BOOTSTRAP_ENV}"
+  set +a
+fi
+
+# Resolved install path (bootstrap / export / default)
+INSTALL_ROOT="${APP_DIR:-${HOME}/nextjs-self-host}"
 
 SWAP_SIZE="1G"
 
-if [[ -z "${EMAIL}" || "${EMAIL}" == "your-email@example.com" ]]; then
-  echo "Set EMAIL at the top of deploy.sh to a real address for Let's Encrypt."
+sudo apt update
+sudo apt install -y git
+
+# Clone or update repo — first clone needs REPO_URL (bootstrap file or export)
+if [[ -d "${INSTALL_ROOT}" ]]; then
+  echo "Directory ${INSTALL_ROOT} already exists. Pulling latest changes..."
+  git -C "${INSTALL_ROOT}" pull
+else
+  if [[ -z "${REPO_URL:-}" ]]; then
+    echo "First clone needs REPO_URL — set it in ${BOOTSTRAP_ENV} (see env.sample) or export REPO_URL before deploy.sh."
+    exit 1
+  fi
+  echo "Cloning repository from ${REPO_URL}..."
+  git clone "${REPO_URL}" "${INSTALL_ROOT}"
+fi
+
+if [[ ! -f "${INSTALL_ROOT}/.env" ]]; then
+  if [[ -f "${BOOTSTRAP_ENV}" ]]; then
+    echo "Copying ${BOOTSTRAP_ENV} to ${INSTALL_ROOT}/.env"
+    cp "${BOOTSTRAP_ENV}" "${INSTALL_ROOT}/.env"
+  else
+    echo "Missing ${INSTALL_ROOT}/.env — add env.sample there or create ${BOOTSTRAP_ENV} and re-run."
+    exit 1
+  fi
+fi
+
+set -a
+# shellcheck disable=SC1091
+source "${INSTALL_ROOT}/.env"
+set +a
+
+# Canonical app directory on disk (if APP_DIR appears in .env it must match INSTALL_ROOT)
+if [[ -n "${APP_DIR:-}" ]] && [[ "${APP_DIR}" != "${INSTALL_ROOT}" ]]; then
+  echo "APP_DIR in .env (${APP_DIR}) must match the install directory (${INSTALL_ROOT})."
+  exit 1
+fi
+APP_DIR="${INSTALL_ROOT}"
+
+if [[ -z "${DOMAIN_NAME:-}" ]]; then
+  echo "Set DOMAIN_NAME in ${APP_DIR}/.env (see env.sample)."
+  exit 1
+fi
+
+if [[ -z "${LETS_ENCRYPT_EMAIL:-}" ]]; then
+  echo "Set LETS_ENCRYPT_EMAIL in ${APP_DIR}/.env for Certbot / Let's Encrypt (see env.sample)."
   exit 1
 fi
 
 # Update package list and upgrade existing packages
-sudo apt update && sudo apt upgrade -y
+sudo apt upgrade -y
 
 # Add swap (helps small VPS during builds)
 echo "Adding swap space..."
@@ -46,38 +95,6 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 sudo systemctl enable docker
 sudo systemctl start docker
 
-# Clone or update repo
-if [[ -d "${APP_DIR}" ]]; then
-  echo "Directory ${APP_DIR} already exists. Pulling latest changes..."
-  git -C "${APP_DIR}" pull
-else
-  echo "Cloning repository from ${REPO_URL}..."
-  git clone "${REPO_URL}" "${APP_DIR}"
-fi
-
-# ReqRes vars: compose.yml uses env_file: .env — one source only (no Docker-only copy).
-ensure_reqres_dotenv() {
-  local env_path="${APP_DIR}/.env"
-
-  if [[ -f "${env_path}" ]] && grep -qE '^REQ_RES_API_KEY=.+' "${env_path}" &&
-    grep -qE '^REQ_RES_PROJECT_ID=.+' "${env_path}"; then
-    echo "Using existing ${env_path} (picked up by Docker Compose)."
-    return
-  fi
-
-  if [[ -n "${REQ_RES_API_KEY:-}" && -n "${REQ_RES_PROJECT_ID:-}" ]]; then
-    printf '%s\n' "REQ_RES_API_KEY=${REQ_RES_API_KEY}" "REQ_RES_PROJECT_ID=${REQ_RES_PROJECT_ID}" > "${env_path}"
-    echo "Wrote ${env_path} from REQ_RES_* in the environment."
-    return
-  fi
-
-  echo "Compose needs REQ_RES_API_KEY and REQ_RES_PROJECT_ID in ${env_path}.
-Create that file on the server (see env.sample), or export both variables for a one-time write."
-  exit 1
-}
-
-ensure_reqres_dotenv
-
 # Nginx
 sudo apt install -y nginx
 
@@ -87,7 +104,7 @@ sudo rm -f /etc/nginx/sites-enabled/nextjs-self-host
 sudo systemctl stop nginx
 
 sudo apt install -y certbot wget
-sudo certbot certonly --standalone -d "${DOMAIN_NAME}" --non-interactive --agree-tos -m "${EMAIL}"
+sudo certbot certonly --standalone -d "${DOMAIN_NAME}" --non-interactive --agree-tos -m "${LETS_ENCRYPT_EMAIL}"
 
 if [[ ! -f /etc/letsencrypt/options-ssl-nginx.conf ]]; then
   sudo wget -q \
@@ -146,7 +163,4 @@ fi
 ( crontab -l 2>/dev/null; echo "0 */12 * * * certbot renew --quiet && systemctl reload nginx" ) | crontab -
 
 echo "Deployment complete.
-HTTPS: https://${DOMAIN_NAME}
-App runs in Docker on port 3000; Nginx terminates TLS and proxies to it.
-
-ReqRes credentials live in ${APP_DIR}/.env (read by Compose via env_file)."
+HTTPS: https://${DOMAIN_NAME}"
