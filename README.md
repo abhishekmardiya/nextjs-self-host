@@ -351,6 +351,7 @@ docker compose version
 From the directory that contains `compose.yml`:
 
 ```bash
+docker compose build
 docker compose up -d
 ```
 
@@ -362,6 +363,7 @@ docker compose logs -f app
 docker compose restart app
 docker compose stop
 docker compose down
+docker compose build
 docker compose up -d
 ```
 
