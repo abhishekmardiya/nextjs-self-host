@@ -2,7 +2,7 @@
 
 # Script Vars
 REPO_URL="git@github.com:abhishekmardiya/nextjs-self-host.git"
-APP_DIR=~/myapp
+APP_DIR=~/app
 
 # Pull the latest changes from the Git repository
 if [ -d "$APP_DIR" ]; then
@@ -15,7 +15,7 @@ else
   cd $APP_DIR
 fi
 
-# Build and restart the Docker containers from the app directory (~/myapp)
+# Build and restart the Docker containers from the app directory (~/app)
 echo "Rebuilding and restarting Docker containers..."
 sudo docker-compose down
 sudo docker-compose up --build -d
